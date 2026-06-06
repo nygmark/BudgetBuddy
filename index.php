@@ -1,5 +1,5 @@
 <?php
-// Simple entry point
-header("Location: auth/login.php");
+// Main entry now points to the separated frontend folder
+header("Location: frontend/index.php");
 exit;
 ?>

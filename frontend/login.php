@@ -27,12 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user['password'])) {
-                // Success - set session
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 $_SESSION['user_email'] = $user['email'];
                 $success = true;
-                header("Location: ../frontend/dashboard.php");
+                header("Location: dashboard.php");
                 exit;
             } else {
                 $errors[] = "Invalid password.";
@@ -42,9 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// If already logged in, go to dashboard
 if (isset($_SESSION['user_id'])) {
-    header("Location: ../frontend/dashboard.php");
+    header("Location: dashboard.php");
     exit;
 }
 ?>
@@ -56,7 +54,7 @@ if (isset($_SESSION['user_id'])) {
 </head>
 <body>
     <h1>BudgetBuddy Login</h1>
-    <p>No design - plain functional page</p>
+    <p>No design - plain functional page (frontend folder)</p>
 
     <?php if (!empty($errors)): ?>
         <ul style="color:red;">
@@ -81,6 +79,6 @@ if (isset($_SESSION['user_id'])) {
     <p>Don't have an account? <a href="signup.php">Sign up here</a></p>
 
     <hr>
-    <p><small>Demo: john@example.com / 123456 (after running schema.sql)</small></p>
+    <p><small>Demo: john@example.com / 123456 (after running sql/schema.sql)</small></p>
 </body>
 </html>

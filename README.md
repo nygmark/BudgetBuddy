@@ -1,67 +1,34 @@
 # BudgetBuddy
 
-Plain functional frontend (no design) + PHP backend for expense tracking, savings goals, budget overview, history filters, and reminders.
+All **frontend UI pages** (the ones the front-end person will work on) stored together in the **`frontend/`** folder.
 
-## Features Implemented
-- **Dashboard Overview**
-  - Total expenses (current month)
-  - Total savings (all-time)
-  - Remaining budget
-  - Pie chart (Food vs Transpo) using canvas
-  - Progress bar for savings goal
+These are **.php files** (HTML + PHP mixed, as the frontend guy is comfortable with PHP + HTML being in the same files for rendering, forms, etc.).
 
-- **Expense History**
-  - Add expense (amount, food/transpo category, date, desc)
-  - View past by Day / Week / Month (client-side filter)
-  - Filter by category (food or transpo)
-  - Table with delete
+They have access to the backend via includes (`../includes/`, `../config/db.php`).
 
-- **Notif/Reminders**
-  - Log daily expense reminder (if none today)
-  - Save money for goal reminder
-  - Budget almost used alert (80%+)
+## Frontend Folder (what the front guy works in)
+- `frontend/index.php` → entry (goes to login)
+- `frontend/login.php`
+- `frontend/signup.php`
+- `frontend/dashboard.php` (Overview + summaries + budget status + goal progress + reminders)
+- `frontend/expense-tracker.php` (Add expense: Amount, Category Food/Transpo, Date, Notes + Daily/Weekly/Monthly totals + filters for Day/Week/Month + Category + history table + delete)
+- `frontend/budget-limits.php` (Set daily Food & Transpo limits + check any date + exceed ALERTs)
+- `frontend/saving-goal.php` (Set goal name + target + optional deadline + progress bar + remaining + add savings + list)
+- `frontend/nav.php` (shared plain nav for the folder)
 
-- **Savings & Settings**
-  - Add savings contributions
-  - Update monthly budget & savings goal
-
-- Auth: Login + Signup (fixed + secured)
-
-## Setup (XAMPP / similar)
-
-1. Put this folder in htdocs (e.g. `C:\xampp\htdocs\BudgetBuddy`)
-
-2. Start Apache + MySQL in XAMPP control panel.
-
-3. Import the database:
-   - Open phpMyAdmin (http://localhost/phpmyadmin)
-   - Import `sql/schema.sql`  OR run it directly.
-   - This creates `budget_buddy` DB + tables + sample user.
-
-4. (Optional) Test hash: visit http://localhost/BudgetBuddy/test.php
-
-5. Open: http://localhost/BudgetBuddy/auth/login.php
-   - Demo login: `john@example.com` / `123456`
-
-6. After login you land on `dashboard.php` which contains the full plain frontend.
-
-## Files
-- `auth/login.php` + `auth/signup.php` : fixed, use prepared statements, sessions, auto-login on signup
-- `dashboard.php` : the main no-design UI + all logic (POST handlers + queries + embedded data)
+## Backend (shared, outside the frontend folder)
 - `config/db.php`
-- `sql/schema.sql` : full DB + sample data
+- `includes/` (auth_check, helpers for calculations, etc.)
+- `sql/schema.sql`
+- `api/` (optional pure JSON endpoints if needed later)
+- Root `logout.php`
 
-## Notes
-- "Without any design" = plain HTML elements, tables, forms, minimal inline styles only for progress/pie to function.
-- All data is per logged-in user (via session).
-- To reset data, re-run the schema DROP/CREATE.
-- For production: add CSRF, better validation, HTTPS, etc. (this is student/assignment level)
 
-## CMD DATABASE
+## How to run
+- paste the code into cmd while xampp is running and put this folder in htdocs folder
+
 DROP DATABASE IF EXISTS budget_buddy;
-
 CREATE DATABASE budget_buddy;
-
 USE budget_buddy;
 
 CREATE TABLE users (
@@ -72,6 +39,11 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     monthly_budget DECIMAL(10,2) DEFAULT 5000.00,
     savings_goal DECIMAL(10,2) DEFAULT 10000.00,
+    food_daily_limit DECIMAL(10,2) DEFAULT 150.00,
+    transpo_daily_limit DECIMAL(10,2) DEFAULT 100.00,
+    goal_name VARCHAR(100) DEFAULT 'My Savings Goal',
+    goal_target DECIMAL(10,2) DEFAULT 10000.00,
+    goal_deadline DATE NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -79,7 +51,7 @@ CREATE TABLE expenses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    category ENUM('food','transpo') NOT NULL,
+    category ENUM('food', 'transpo') NOT NULL,
     description VARCHAR(255) DEFAULT '',
     expense_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -96,42 +68,4 @@ CREATE TABLE savings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-INSERT INTO users (
-    first_name,
-    last_name,
-    email,
-    password,
-    monthly_budget,
-    savings_goal
-) VALUES (
-    'John',
-    'Doe',
-    'john@example.com',
-    '$2y$10$h75/nMds//4xwOc3WBh.Z.DNarU94HJSstOSHEmpQIp7EPxNLb3CS',
-    8000.00,
-    15000.00
-);
-
-INSERT INTO expenses (
-    user_id,
-    amount,
-    category,
-    description,
-    expense_date
-) VALUES
-(1,250.50,'food','Lunch at canteen',DATE_SUB(CURDATE(), INTERVAL 2 DAY)),
-(1,120.00,'transpo','Jeepney fare',DATE_SUB(CURDATE(), INTERVAL 1 DAY)),
-(1,85.75,'food','Snacks',CURDATE()),
-(1,45.00,'transpo','Tricycle',CURDATE()),
-(1,320.00,'food','Groceries',DATE_SUB(CURDATE(), INTERVAL 5 DAY)),
-(1,60.00,'transpo','Bus to work',DATE_SUB(CURDATE(), INTERVAL 3 DAY));
-
-INSERT INTO savings (
-    user_id,
-    amount,
-    note,
-    savings_date
-) VALUES
-(1,500.00,'Weekly save',DATE_SUB(CURDATE(), INTERVAL 7 DAY)),
-(1,300.00,'Extra from allowance',DATE_SUB(CURDATE(), INTERVAL 2 DAY)),
-(1,200.00,'',CURDATE());
+SHOW TABLES;

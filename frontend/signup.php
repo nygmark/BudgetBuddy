@@ -12,7 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password  = $_POST['password'] ?? '';
     $confirm   = $_POST['confirm'] ?? '';
 
-    // Basic validation
     if ($firstName === '' || $lastName === '') {
         $errors[] = "First and last name are required.";
     }
@@ -27,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        // Check if email exists
         $check = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
         $check->bind_param("s", $email);
         $check->execute();
@@ -37,16 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Email already registered.";
         } else {
             $hashed = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, email, password, monthly_budget, savings_goal) VALUES (?, ?, ?, ?, 5000.00, 10000.00)");
+            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, email, password, monthly_budget, savings_goal, food_daily_limit, transpo_daily_limit, goal_name, goal_target) VALUES (?, ?, ?, ?, 5000.00, 10000.00, 150.00, 100.00, 'My Savings Goal', 10000.00)");
             $stmt->bind_param("ssss", $firstName, $lastName, $email, $hashed);
 
             if ($stmt->execute()) {
                 $success = true;
-                // Auto login
                 $_SESSION['user_id'] = $stmt->insert_id;
                 $_SESSION['user_name'] = $firstName . ' ' . $lastName;
                 $_SESSION['user_email'] = $email;
-                header("Location: ../frontend/dashboard.php");
+                header("Location: dashboard.php");
                 exit;
             } else {
                 $errors[] = "Registration failed: " . $conn->error;
@@ -65,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <h1>BudgetBuddy Sign Up</h1>
-    <p>No design - plain functional page</p>
+    <p>No design - plain functional page (frontend folder)</p>
 
     <?php if ($success): ?>
         <p>Success! Redirecting...</p>
