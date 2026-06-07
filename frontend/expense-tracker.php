@@ -9,7 +9,6 @@ $today = date('Y-m-d');
 $foodLimit = (float)($currentUser['food_daily_limit'] ?? 150);
 $transpoLimit = (float)($currentUser['transpo_daily_limit'] ?? 100);
 
-// Handle add expense
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_expense') {
     $amount = floatval($_POST['amount'] ?? 0);
     $category = $_POST['category'] ?? '';
@@ -24,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_e
             $limit = ($category === 'food') ? $foodLimit : $transpoLimit;
             $overMsg = '';
             if ($spentAfter > $limit) {
-                $overMsg = " (ALERT: This made you exceed your daily $category limit of ₱" . number_format($limit,2) . " for $expenseDate)";
+                $overMsg = " You exceeded your $category limit for $expenseDate.";
             }
             $msg = "Expense added successfully." . $overMsg;
         } else {
@@ -38,7 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_e
     exit;
 }
 
-// Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_expense') {
     $eid = intval($_POST['expense_id'] ?? 0);
     $del = $conn->prepare("DELETE FROM expenses WHERE id = ? AND user_id = ?");
@@ -49,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     exit;
 }
 
-// Current aggregates
 $todayTotal = get_daily_spent($conn, $userId, $today);
 $weekTotal  = get_weekly_spent($conn, $userId);
 $monthTotal = get_monthly_spent($conn, $userId);
@@ -57,107 +54,130 @@ $monthTotal = get_monthly_spent($conn, $userId);
 $todayFood = get_daily_spent($conn, $userId, $today, 'food');
 $todayTrans = get_daily_spent($conn, $userId, $today, 'transpo');
 
-// All expenses for client-side filtering
 $allExpenses = get_all_expenses($conn, $userId);
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BudgetBuddy - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BudgetBuddy - Expenses</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>EXPENSE TRACKER (DAILY SPENDING)</h1>
-    <?php include __DIR__ . '/nav.php'; ?>
+    <header class="header">
+        <div class="header-content">
+            <h1>BudgetBuddy</h1>
+            <p>Expense Tracker</p>
+        </div>
+        <nav class="nav">
+            <a href="dashboard.php">Dashboard</a>
+            <a href="expense-tracker.php" class="active">Expenses</a>
+            <a href="budget-limits.php">Budget</a>
+            <a href="saving-goal.php">Goals</a>
+            <a href="../logout.php" class="nav-logout">Logout</a>
+        </nav>
+    </header>
 
-    <?php if ($msg): ?><p style="color:green;"><?= htmlspecialchars($msg) ?></p><?php endif; ?>
-    <?php if ($err): ?><p style="color:red;"><?= htmlspecialchars($err) ?></p><?php endif; ?>
+    <div class="container">
+        <?php if ($msg): ?>
+            <div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+        <?php endif; ?>
+        <?php if ($err): ?>
+            <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+        <?php endif; ?>
 
-    <!-- ADD EXPENSE -->
-    <h2>Add Expense</h2>
-    <form method="POST">
-        <input type="hidden" name="action" value="add_expense">
+        <div class="card">
+            <h2>Add Expense</h2>
+            <form method="POST" class="form-inline">
+                <input type="hidden" name="action" value="add_expense">
 
-        <label>Amount:</label>
-        <input type="number" step="0.01" name="amount" required style="width:100px;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="amount">Amount</label>
+                        <input type="number" id="amount" step="0.01" name="amount" required placeholder="0.00">
+                    </div>
 
-        <label>Category:</label>
-        <select name="category" required>
-            <option value="food">Food</option>
-            <option value="transpo">Transpo</option>
-        </select>
+                    <div class="form-group">
+                        <label for="category">Category</label>
+                        <select id="category" name="category" required>
+                            <option value="">Select category</option>
+                            <option value="food">Food</option>
+                            <option value="transpo">Transportation</option>
+                        </select>
+                    </div>
 
-        <label>Date:</label>
-        <input type="date" name="expense_date" value="<?= $today ?>" required>
+                    <div class="form-group">
+                        <label for="expense_date">Date</label>
+                        <input type="date" id="expense_date" name="expense_date" value="<?= $today ?>" required>
+                    </div>
+                </div>
 
-        <br><br>
-        <label>Notes (optional):</label>
-        <input type="text" name="notes" style="width:300px;" placeholder="e.g. Lunch with friends">
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <input type="text" id="notes" name="notes" placeholder="Optional">
+                </div>
 
-        <button type="submit">Add Expense</button>
-    </form>
+                <button type="submit" class="btn btn-primary">Add Expense</button>
+            </form>
+        </div>
 
-    <!-- TOTALS -->
-    <h2>Expense Totals</h2>
-    <table border="1" style="width:auto; margin-bottom:15px;">
-        <tr>
-            <th>Period</th>
-            <th>Total Spent</th>
-            <th>Breakdown (today)</th>
-        </tr>
-        <tr>
-            <td><strong>Daily (Today)</strong></td>
-            <td>₱ <?= number_format($todayTotal, 2) ?></td>
-            <td>Food: ₱ <?= number_format($todayFood,2) ?> &nbsp; Transpo: ₱ <?= number_format($todayTrans,2) ?></td>
-        </tr>
-        <tr>
-            <td><strong>Weekly (last 7 days)</strong></td>
-            <td>₱ <?= number_format($weekTotal, 2) ?></td>
-            <td>—</td>
-        </tr>
-        <tr>
-            <td><strong>Monthly (this month)</strong></td>
-            <td>₱ <?= number_format($monthTotal, 2) ?></td>
-            <td>—</td>
-        </tr>
-    </table>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Today</div>
+                <div class="stat-value">₱<?= number_format($todayTotal, 2) ?></div>
+                <small>Food: ₱<?= number_format($todayFood, 2) ?> | Transport: ₱<?= number_format($todayTrans, 2) ?></small>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">This Week</div>
+                <div class="stat-value">₱<?= number_format($weekTotal, 2) ?></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">This Month</div>
+                <div class="stat-value">₱<?= number_format($monthTotal, 2) ?></div>
+            </div>
+        </div>
 
-    <!-- FILTERED HISTORY -->
-    <h2>Your Expenses (filter by Day/Week/Month + Category)</h2>
+        <div class="card">
+            <h2>Expense History</h2>
 
-    <div class="filter-bar">
-        <label>Period:</label>
-        <select id="periodFilter">
-            <option value="all">All</option>
-            <option value="day" selected>Day (Today)</option>
-            <option value="week">Week</option>
-            <option value="month">Month</option>
-        </select>
+            <div class="filter-bar">
+                <select id="periodFilter">
+                    <option value="all">All Time</option>
+                    <option value="day" selected>Today</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">This Month</option>
+                </select>
 
-        <label>Category:</label>
-        <select id="categoryFilter">
-            <option value="all">All</option>
-            <option value="food">Food</option>
-            <option value="transpo">Transpo</option>
-        </select>
+                <select id="categoryFilter">
+                    <option value="all">All Categories</option>
+                    <option value="food">Food</option>
+                    <option value="transpo">Transportation</option>
+                </select>
 
-        <button onclick="applyFilters()">Apply Filter</button>
-        <button onclick="resetFilters()">Reset</button>
+                <button onclick="applyFilters()" class="btn btn-primary">Apply</button>
+                <button onclick="resetFilters()" class="btn btn-secondary">Reset</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesBody"></tbody>
+                </table>
+            </div>
+            <p id="noResults" style="display:none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                No expenses found.
+            </p>
+        </div>
     </div>
-
-    <table id="expensesTable" border="1" style="width:100%; max-width:900px;">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Category</th>
-                <th>Notes</th>
-                <th>Amount</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="expensesBody"></tbody>
-    </table>
-    <p id="noResults" style="display:none;">No expenses match the filters.</p>
 
     <script>
         const allExpenses = <?= json_encode($allExpenses) ?>;
@@ -165,22 +185,30 @@ $allExpenses = get_all_expenses($conn, $userId);
         function renderTable(data) {
             const tbody = document.getElementById('expensesBody');
             tbody.innerHTML = '';
-            const no = document.getElementById('noResults');
-            if (data.length === 0) { no.style.display = 'block'; return; }
-            no.style.display = 'none';
+            const noResults = document.getElementById('noResults');
+
+            if (data.length === 0) {
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
 
             data.forEach(function(exp) {
+                const categoryClass = exp.category === 'food' ? 'category-food' : 'category-transpo';
+                const categoryLabel = exp.category === 'food' ? 'Food' : 'Transportation';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${exp.expense_date}</td>
-                    <td>${exp.category}</td>
-                    <td>${exp.description ? exp.description : ''}</td>
+                    <td class="${categoryClass}">${categoryLabel}</td>
+                    <td>${exp.description || '-'}</td>
                     <td>₱${parseFloat(exp.amount).toFixed(2)}</td>
                     <td>
                         <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this expense?');">
                             <input type="hidden" name="action" value="delete_expense">
                             <input type="hidden" name="expense_id" value="${exp.id}">
-                            <button type="submit" style="font-size:10px;">Delete</button>
+                            <button type="submit" class="btn btn-small btn-danger">Delete</button>
                         </form>
                     </td>
                 `;
@@ -190,25 +218,25 @@ $allExpenses = get_all_expenses($conn, $userId);
 
         function applyFilters() {
             const period = document.getElementById('periodFilter').value;
-            const cat = document.getElementById('categoryFilter').value;
+            const category = document.getElementById('categoryFilter').value;
             let filtered = allExpenses.slice();
 
-            const d = new Date();
-            const todayStr = d.toISOString().slice(0,10);
+            const today = new Date().toISOString().slice(0, 10);
 
             if (period === 'day') {
-                filtered = filtered.filter(e => e.expense_date === todayStr);
+                filtered = filtered.filter(e => e.expense_date === today);
             } else if (period === 'week') {
-                const weekAgo = new Date(d.getTime() - 7*24*60*60*1000).toISOString().slice(0,10);
+                const weekAgo = new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
                 filtered = filtered.filter(e => e.expense_date >= weekAgo);
             } else if (period === 'month') {
-                const monthStart = todayStr.slice(0,7) + '-01';
+                const monthStart = today.slice(0, 7) + '-01';
                 filtered = filtered.filter(e => e.expense_date >= monthStart);
             }
 
-            if (cat !== 'all') {
-                filtered = filtered.filter(e => e.category === cat);
+            if (category !== 'all') {
+                filtered = filtered.filter(e => e.category === category);
             }
+
             renderTable(filtered);
         }
 
@@ -218,13 +246,7 @@ $allExpenses = get_all_expenses($conn, $userId);
             applyFilters();
         }
 
-        window.onload = function() {
-            document.getElementById('periodFilter').value = 'day';
-            document.getElementById('categoryFilter').value = 'all';
-            applyFilters();
-        };
+        window.addEventListener('load', applyFilters);
     </script>
-
-    <p><small>Frontend page with PHP backend mixed (as requested).</small></p>
 </body>
 </html>
