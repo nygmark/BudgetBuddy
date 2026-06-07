@@ -2,10 +2,14 @@
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+setcookie('theme', $theme, time() + (86400 * 365), '/');
+
 $msg = isset($_GET['msg']) ? $_GET['msg'] : '';
 $err = isset($_GET['err']) ? $_GET['err'] : '';
 
 $today = date('Y-m-d');
+$showEditForm = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_goal') {
     $gName = trim($_POST['goal_name'] ?? 'My Savings Goal');
@@ -13,19 +17,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     $gDeadline = $_POST['goal_deadline'] ?? null;
     if ($gDeadline === '') $gDeadline = null;
 
-    $upd = $conn->prepare("UPDATE users SET goal_name = ?, goal_target = ?, goal_deadline = ? WHERE id = ?");
-    $upd->bind_param("sdsi", $gName, $gTarget, $gDeadline, $userId);
-    if ($upd->execute()) {
-        $msg = "Saving goal updated.";
-        $currentUser['goal_name'] = $gName;
-        $currentUser['goal_target'] = $gTarget;
-        $currentUser['goal_deadline'] = $gDeadline;
+    if (empty($gName)) {
+        $err = "Goal name cannot be empty.";
+    } elseif ($gTarget <= 0) {
+        $err = "Target amount must be greater than 0.";
     } else {
-        $err = "Failed to update goal.";
+        $upd = $conn->prepare("UPDATE users SET goal_name = ?, goal_target = ?, goal_deadline = ? WHERE id = ?");
+        $upd->bind_param("sdsi", $gName, $gTarget, $gDeadline, $userId);
+        if ($upd->execute()) {
+            $msg = "Saving goal updated successfully.";
+            $currentUser['goal_name'] = $gName;
+            $currentUser['goal_target'] = $gTarget;
+            $currentUser['goal_deadline'] = $gDeadline;
+        } else {
+            $err = "Failed to update goal.";
+        }
+        $upd->close();
     }
-    $upd->close();
-    header("Location: saving-goal.php?msg=" . urlencode($msg) . "&err=" . urlencode($err));
-    exit;
+    if (!empty($msg)) {
+        header("Location: saving-goal.php?msg=" . urlencode($msg));
+        exit;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_savings') {
@@ -60,34 +72,50 @@ $remaining    = max(0, $goalTarget - $totalSavings);
 $recentSavings = get_recent_savings($conn, $userId, 10);
 ?>
 <!DOCTYPE html>
-<html>
+<html data-theme="<?= $theme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BudgetBuddy - Saving Goal</title>
+    <title>BudgetBuddy - Saving Goals</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header class="header">
-        <div class="header-content">
-            <h1>BudgetBuddy</h1>
-            <p>Saving Goal</p>
+        <div class="header-left">
+            <div class="logo-container">
+                <img id="logoImg" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
+            </div>
+            <div class="header-content">
+                <h1>BudgetBuddy</h1>
+                <p>Achieve Your Goals</p>
+            </div>
         </div>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">Dark Mode</button>
+        </div>
+    </header>
+
+    <div style="padding: 0 2rem;">
         <nav class="nav">
             <a href="dashboard.php">Dashboard</a>
             <a href="expense-tracker.php">Expenses</a>
             <a href="budget-limits.php">Budget</a>
             <a href="saving-goal.php" class="active">Goals</a>
-            <a href="../logout.php" class="nav-logout">Logout</a>
+            <a href="logout.php" class="nav-logout">Logout</a>
         </nav>
-    </header>
+    </div>
 
     <div class="container">
         <?php if ($msg): ?>
-            <div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+            <div class="alert alert-success">
+                <strong>Success:</strong> <?= htmlspecialchars($msg) ?>
+            </div>
         <?php endif; ?>
         <?php if ($err): ?>
-            <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+            <div class="alert alert-error">
+                <strong>Error:</strong> <?= htmlspecialchars($err) ?>
+            </div>
         <?php endif; ?>
 
         <div class="card">
@@ -101,7 +129,7 @@ $recentSavings = get_recent_savings($conn, $userId, 10);
 
             <div class="goal-details">
                 <div class="goal-item">
-                    <span class="goal-label">Saved</span>
+                    <span class="goal-label">Saved So Far</span>
                     <span class="goal-value">₱<?= number_format($totalSavings, 2) ?></span>
                 </div>
                 <div class="goal-item">
@@ -119,32 +147,37 @@ $recentSavings = get_recent_savings($conn, $userId, 10);
                 </div>
                 <?php endif; ?>
             </div>
-        </div>
 
-        <div class="card">
-            <h2>Update Goal</h2>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_goal">
+            <button class="btn btn-secondary" onclick="toggleEditForm()" style="margin-top: 1.5rem; width: 100%;">Edit Goal</button>
 
-                <div class="form-group">
-                    <label for="goal_name">Goal Name</label>
-                    <input type="text" id="goal_name" name="goal_name" value="<?= htmlspecialchars($goalName) ?>" required>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="goal_target">Target Amount</label>
-                        <input type="number" id="goal_target" step="0.01" name="goal_target" value="<?= htmlspecialchars($goalTarget) ?>" required>
-                    </div>
+            <div id="editForm" class="goal-edit-form" style="display: none;">
+                <h3 style="margin-bottom: 1.5rem; color: var(--text-dark);">Update Your Goal</h3>
+                <form method="POST">
+                    <input type="hidden" name="action" value="update_goal">
 
                     <div class="form-group">
-                        <label for="goal_deadline">Deadline</label>
-                        <input type="date" id="goal_deadline" name="goal_deadline" value="<?= htmlspecialchars($goalDeadline ?? '') ?>">
+                        <label for="goal_name">Goal Name</label>
+                        <input type="text" id="goal_name" name="goal_name" value="<?= htmlspecialchars($goalName) ?>" required placeholder="e.g., Vacation Fund">
                     </div>
-                </div>
 
-                <button type="submit" class="btn btn-primary">Update Goal</button>
-            </form>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="goal_target">Target Amount</label>
+                            <input type="number" id="goal_target" step="0.01" name="goal_target" value="<?= htmlspecialchars($goalTarget) ?>" required placeholder="0.00">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="goal_deadline">Deadline</label>
+                            <input type="date" id="goal_deadline" name="goal_deadline" value="<?= htmlspecialchars($goalDeadline ?? '') ?>">
+                        </div>
+                    </div>
+
+                    <div class="edit-btn-group">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="toggleEditForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <div class="card">
@@ -166,7 +199,7 @@ $recentSavings = get_recent_savings($conn, $userId, 10);
 
                 <div class="form-group">
                     <label for="savings_note">Note</label>
-                    <input type="text" id="savings_note" name="savings_note" placeholder="Optional">
+                    <input type="text" id="savings_note" name="savings_note" placeholder="e.g., Monthly savings">
                 </div>
 
                 <button type="submit" class="btn btn-primary">Add to Savings</button>
@@ -204,5 +237,30 @@ $recentSavings = get_recent_savings($conn, $userId, 10);
             <?php endif; ?>
         </div>
     </div>
+
+       <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+            
+            const btn = document.querySelector('.theme-toggle');
+            btn.textContent = newTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleEditForm() {
+            const form = document.getElementById('editForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        window.addEventListener('load', function() {
+            const theme = document.documentElement.getAttribute('data-theme') || 'light';
+            const btn = document.querySelector('.theme-toggle');
+            btn.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        });
+    </script>
 </body>
 </html>

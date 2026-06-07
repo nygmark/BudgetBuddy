@@ -2,6 +2,9 @@
 session_start();
 include("../config/db.php");
 
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+setcookie('theme', $theme, time() + (86400 * 365), '/');
+
 $errors = [];
 $success = false;
 
@@ -55,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html data-theme="<?= $theme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,11 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="auth-container">
         <div class="auth-card">
             <h1>BudgetBuddy</h1>
-            <p class="subtitle">Create Account</p>
+            <p class="subtitle">Create Your Account</p>
 
             <?php if (!empty($errors)): ?>
                 <?php foreach ($errors as $e): ?>
-                    <div class="alert alert-error"><?= htmlspecialchars($e) ?></div>
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> <?= htmlspecialchars($e) ?>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
 
@@ -78,38 +83,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="firstName">First Name</label>
-                        <input type="text" id="firstName" name="firstName" required value="<?= htmlspecialchars($_POST['firstName'] ?? '') ?>">
+                        <input type="text" id="firstName" name="firstName" required value="<?= htmlspecialchars($_POST['firstName'] ?? '') ?>" placeholder="John">
                     </div>
 
                     <div class="form-group">
                         <label for="lastName">Last Name</label>
-                        <input type="text" id="lastName" name="lastName" required value="<?= htmlspecialchars($_POST['lastName'] ?? '') ?>">
+                        <input type="text" id="lastName" name="lastName" required value="<?= htmlspecialchars($_POST['lastName'] ?? '') ?>" placeholder="Doe">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="your@email.com">
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
+                    <input type="password" id="password" name="password" required placeholder="••••••••">
                     <small>Minimum 6 characters</small>
                 </div>
 
                 <div class="form-group">
                     <label for="confirm">Confirm Password</label>
-                    <input type="password" id="confirm" name="confirm" required>
+                    <input type="password" id="confirm" name="confirm" required placeholder="••••••••">
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
             </form>
 
             <div class="auth-footer">
-                <p>Already have an account? <a href="login.php">Login</a></p>
+                <p>Already have an account? <a href="login.php">Login here</a></p>
             </div>
         </div>
     </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        });
+    </script>
 </body>
 </html>

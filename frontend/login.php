@@ -2,6 +2,9 @@
 session_start();
 include("../config/db.php");
 
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+setcookie('theme', $theme, time() + (86400 * 365), '/');
+
 $errors = [];
 $success = false;
 
@@ -47,7 +50,7 @@ if (isset($_SESSION['user_id'])) {
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html data-theme="<?= $theme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,28 +65,46 @@ if (isset($_SESSION['user_id'])) {
 
             <?php if (!empty($errors)): ?>
                 <?php foreach ($errors as $e): ?>
-                    <div class="alert alert-error"><?= htmlspecialchars($e) ?></div>
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> <?= htmlspecialchars($e) ?>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
 
             <form method="POST" action="">
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" placeholder="your@email.com">
                 </div>
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
+                    <input type="password" id="password" name="password" required placeholder="••••••••">
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login to Account</button>
             </form>
 
             <div class="auth-footer">
-                <p>Don't have an account? <a href="signup.php">Sign up</a></p>
+                <p>Don't have an account? <a href="signup.php">Create one now</a></p>
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        window.addEventListener('load', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        });
+    </script>
 </body>
 </html>

@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+setcookie('theme', $theme, time() + (86400 * 365), '/');
+
 $msg = isset($_GET['msg']) ? $_GET['msg'] : '';
 $err = isset($_GET['err']) ? $_GET['err'] : '';
 
@@ -14,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     $upd = $conn->prepare("UPDATE users SET food_daily_limit = ?, transpo_daily_limit = ? WHERE id = ?");
     $upd->bind_param("ddi", $foodLim, $transLim, $userId);
     if ($upd->execute()) {
-        $msg = "Budget limits updated.";
+        $msg = "Budget limits updated successfully.";
         $currentUser['food_daily_limit'] = $foodLim;
         $currentUser['transpo_daily_limit'] = $transLim;
     } else {
@@ -40,7 +43,7 @@ $overFood = $foodSpent > $foodLimit;
 $overTrans = $transpoSpent > $transpoLimit;
 ?>
 <!DOCTYPE html>
-<html>
+<html data-theme="<?= $theme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -49,25 +52,41 @@ $overTrans = $transpoSpent > $transpoLimit;
 </head>
 <body>
     <header class="header">
-        <div class="header-content">
-            <h1>BudgetBuddy</h1>
-            <p>Budget Limits</p>
+        <div class="header-left">
+            <div class="logo-container">
+                <img id="logoImg" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
+            </div>
+            <div class="header-content">
+                <h1>BudgetBuddy</h1>
+                <p>Manage Your Budget</p>
+            </div>
         </div>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">Dark Mode</button>
+        </div>
+    </header>
+
+    <div style="padding: 0 2rem;">
         <nav class="nav">
             <a href="dashboard.php">Dashboard</a>
             <a href="expense-tracker.php">Expenses</a>
             <a href="budget-limits.php" class="active">Budget</a>
             <a href="saving-goal.php">Goals</a>
-            <a href="../logout.php" class="nav-logout">Logout</a>
+            <a href="logout.php" class="nav-logout">Logout</a>
         </nav>
-    </header>
+    </div>
 
     <div class="container">
         <?php if ($msg): ?>
-            <div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+            <div class="alert alert-success">
+                <strong>Success:</strong> <?= htmlspecialchars($msg) ?>
+            </div>
         <?php endif; ?>
         <?php if ($err): ?>
-            <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+            <div class="alert alert-error">
+                <strong>Error:</strong> <?= htmlspecialchars($err) ?>
+            </div>
         <?php endif; ?>
 
         <div class="card">
@@ -158,17 +177,37 @@ $overTrans = $transpoSpent > $transpoLimit;
             </div>
 
             <?php if ($overFood || $overTrans): ?>
-                <div style="margin-top: 1.5rem; padding: 1rem; border-radius: 8px; background: #F8D7DA; border-left: 4px solid var(--danger-red);">
-                    <strong style="color: var(--danger-red);">Alert:</strong>
+                <div style="margin-top: 1.5rem; padding: 1rem; border-radius: 12px; background: #F8D7DA; border-left: 4px solid var(--danger-red);">
+                    <strong style="color: var(--danger-red);">Alert</strong>
                     <p style="margin-top: 0.5rem; color: var(--text-dark);">You have exceeded your daily limit on <?= htmlspecialchars($checkDate) ?></p>
                 </div>
             <?php else: ?>
-                <div style="margin-top: 1.5rem; padding: 1rem; border-radius: 8px; background: #D4EDDA; border-left: 4px solid var(--success-green);">
+                <div style="margin-top: 1.5rem; padding: 1rem; border-radius: 12px; background: #D4EDDA; border-left: 4px solid var(--success-green);">
                     <strong style="color: var(--success-green);">Good News</strong>
                     <p style="margin-top: 0.5rem; color: var(--text-dark);">You are within budget on <?= htmlspecialchars($checkDate) ?></p>
                 </div>
             <?php endif; ?>
         </div>
     </div>
+
+    <script>
+       function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        html.setAttribute('data-theme', newTheme);
+        document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+        
+        const btn = document.querySelector('.theme-toggle');
+        btn.textContent = newTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+
+    window.addEventListener('load', function() {
+        const theme = document.documentElement.getAttribute('data-theme') || 'light';
+        const btn = document.querySelector('.theme-toggle');
+        btn.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        });
+    </script>
 </body>
 </html>

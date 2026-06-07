@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
+setcookie('theme', $theme, time() + (86400 * 365), '/');
+
 $msg = isset($_GET['msg']) ? $_GET['msg'] : '';
 $err = isset($_GET['err']) ? $_GET['err'] : '';
 
@@ -57,38 +60,54 @@ $todayTrans = get_daily_spent($conn, $userId, $today, 'transpo');
 $allExpenses = get_all_expenses($conn, $userId);
 ?>
 <!DOCTYPE html>
-<html>
+<html data-theme="<?= $theme ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BudgetBuddy - Expenses</title>
+    <title>BudgetBuddy - Expense Tracker</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header class="header">
-        <div class="header-content">
-            <h1>BudgetBuddy</h1>
-            <p>Expense Tracker</p>
+        <div class="header-left">
+            <div class="logo-container">
+                <img id="logoImg" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
+            </div>
+            <div class="header-content">
+                <h1>BudgetBuddy</h1>
+                <p>Track Your Expenses</p>
+            </div>
         </div>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">Dark Mode</button>
+        </div>
+    </header>
+
+    <div style="padding: 0 2rem;">
         <nav class="nav">
             <a href="dashboard.php">Dashboard</a>
             <a href="expense-tracker.php" class="active">Expenses</a>
             <a href="budget-limits.php">Budget</a>
             <a href="saving-goal.php">Goals</a>
-            <a href="../logout.php" class="nav-logout">Logout</a>
+            <a href="logout.php" class="nav-logout">Logout</a>
         </nav>
-    </header>
+    </div>
 
     <div class="container">
         <?php if ($msg): ?>
-            <div class="alert alert-success"><?= htmlspecialchars($msg) ?></div>
+            <div class="alert alert-success">
+                <strong>Success:</strong> <?= htmlspecialchars($msg) ?>
+            </div>
         <?php endif; ?>
         <?php if ($err): ?>
-            <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
+            <div class="alert alert-error">
+                <strong>Error:</strong> <?= htmlspecialchars($err) ?>
+            </div>
         <?php endif; ?>
 
         <div class="card">
-            <h2>Add Expense</h2>
+            <h2>Add New Expense</h2>
             <form method="POST" class="form-inline">
                 <input type="hidden" name="action" value="add_expense">
 
@@ -115,7 +134,7 @@ $allExpenses = get_all_expenses($conn, $userId);
 
                 <div class="form-group">
                     <label for="notes">Notes</label>
-                    <input type="text" id="notes" name="notes" placeholder="Optional">
+                    <input type="text" id="notes" name="notes" placeholder="Optional description">
                 </div>
 
                 <button type="submit" class="btn btn-primary">Add Expense</button>
@@ -124,16 +143,16 @@ $allExpenses = get_all_expenses($conn, $userId);
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Today</div>
+                <div class="stat-label">Today's Total</div>
                 <div class="stat-value">₱<?= number_format($todayTotal, 2) ?></div>
-                <small>Food: ₱<?= number_format($todayFood, 2) ?> | Transport: ₱<?= number_format($todayTrans, 2) ?></small>
+                <small>Food: ₱<?= number_format($todayFood, 2) ?></small>
             </div>
             <div class="stat-card">
-                <div class="stat-label">This Week</div>
+                <div class="stat-label">Weekly Total</div>
                 <div class="stat-value">₱<?= number_format($weekTotal, 2) ?></div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">This Month</div>
+                <div class="stat-label">Monthly Total</div>
                 <div class="stat-value">₱<?= number_format($monthTotal, 2) ?></div>
             </div>
         </div>
@@ -246,7 +265,23 @@ $allExpenses = get_all_expenses($conn, $userId);
             applyFilters();
         }
 
-        window.addEventListener('load', applyFilters);
+    function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        html.setAttribute('data-theme', newTheme);
+        document.cookie = `theme=${newTheme}; path=/; max-age=31536000`;
+        
+        const btn = document.querySelector('.theme-toggle');
+        btn.textContent = newTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+
+    window.addEventListener('load', function() {
+        const theme = document.documentElement.getAttribute('data-theme') || 'light';
+        const btn = document.querySelector('.theme-toggle');
+        btn.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        });
     </script>
 </body>
 </html>
