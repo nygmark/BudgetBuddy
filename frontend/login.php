@@ -50,35 +50,40 @@ if (isset($_SESSION['user_id'])) {
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BudgetBuddy - Login</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>BudgetBuddy Login</h1>
-    <p>No design - plain functional page (frontend folder)</p>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>BudgetBuddy</h1>
+            <p class="subtitle">Smart Money Management</p>
 
-    <?php if (!empty($errors)): ?>
-        <ul style="color:red;">
-            <?php foreach ($errors as $e): ?>
-                <li><?= htmlspecialchars($e) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
+            <?php if (!empty($errors)): ?>
+                <?php foreach ($errors as $e): ?>
+                    <div class="alert alert-error"><?= htmlspecialchars($e) ?></div>
+                <?php endforeach; ?>
+            <?php endif; ?>
 
-    <form method="POST" action="">
-        <label>Email:<br>
-            <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-        </label><br><br>
+            <form method="POST" action="">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                </div>
 
-        <label>Password:<br>
-            <input type="password" name="password" required>
-        </label><br><br>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
 
-        <button type="submit">Login</button>
-    </form>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
 
-    <p>Don't have an account? <a href="signup.php">Sign up here</a></p>
-
-    <hr>
-    <p><small>Demo: john@example.com / 123456 (after running sql/schema.sql)</small></p>
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="signup.php">Sign up</a></p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
