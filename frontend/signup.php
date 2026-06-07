@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Email already registered.";
         } else {
             $hashed = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, email, password, monthly_budget, savings_goal, food_daily_limit, transpo_daily_limit, goal_name, goal_target) VALUES (?, ?, ?, ?, 5000.00, 10000.00, 150.00, 100.00, 'My Savings Goal', 10000.00)");
+            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, email, password, monthly_budget, savings_goal, food_daily_limit, transpo_daily_limit, goal_name, goal_target) VALUES (?, ?, ?, ?, 5000, 10000, 150, 100, 'My Savings Goal', 10000)");
             $stmt->bind_param("ssss", $firstName, $lastName, $email, $hashed);
 
             if ($stmt->execute()) {
@@ -58,48 +58,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BudgetBuddy - Sign Up</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>BudgetBuddy Sign Up</h1>
-    <p>No design - plain functional page (frontend folder)</p>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>BudgetBuddy</h1>
+            <p class="subtitle">Create Account</p>
 
-    <?php if ($success): ?>
-        <p>Success! Redirecting...</p>
-    <?php endif; ?>
+            <?php if (!empty($errors)): ?>
+                <?php foreach ($errors as $e): ?>
+                    <div class="alert alert-error"><?= htmlspecialchars($e) ?></div>
+                <?php endforeach; ?>
+            <?php endif; ?>
 
-    <?php if (!empty($errors)): ?>
-        <ul style="color:red;">
-            <?php foreach ($errors as $e): ?>
-                <li><?= htmlspecialchars($e) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
+            <form method="POST" action="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">First Name</label>
+                        <input type="text" id="firstName" name="firstName" required value="<?= htmlspecialchars($_POST['firstName'] ?? '') ?>">
+                    </div>
 
-    <form method="POST" action="">
-        <label>First Name:<br>
-            <input type="text" name="firstName" required value="<?= htmlspecialchars($_POST['firstName'] ?? '') ?>">
-        </label><br><br>
+                    <div class="form-group">
+                        <label for="lastName">Last Name</label>
+                        <input type="text" id="lastName" name="lastName" required value="<?= htmlspecialchars($_POST['lastName'] ?? '') ?>">
+                    </div>
+                </div>
 
-        <label>Last Name:<br>
-            <input type="text" name="lastName" required value="<?= htmlspecialchars($_POST['lastName'] ?? '') ?>">
-        </label><br><br>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                </div>
 
-        <label>Email:<br>
-            <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-        </label><br><br>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                    <small>Minimum 6 characters</small>
+                </div>
 
-        <label>Password (min 6 chars):<br>
-            <input type="password" name="password" required>
-        </label><br><br>
+                <div class="form-group">
+                    <label for="confirm">Confirm Password</label>
+                    <input type="password" id="confirm" name="confirm" required>
+                </div>
 
-        <label>Confirm Password:<br>
-            <input type="password" name="confirm" required>
-        </label><br><br>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+            </form>
 
-        <button type="submit">Sign Up</button>
-    </form>
-
-    <p>Already have an account? <a href="login.php">Login here</a></p>
+            <div class="auth-footer">
+                <p>Already have an account? <a href="login.php">Login</a></p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
