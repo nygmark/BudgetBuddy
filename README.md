@@ -1,1 +1,1 @@
-added admin_panel
+added admin_panel and few changes
