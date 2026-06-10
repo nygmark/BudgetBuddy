@@ -43,7 +43,7 @@ Start **Apache** and **MySQL** in the XAMPP Control Panel.
 
 ### 6. Open the app
 ```
-http://localhost/BudgetBuddy/
+http://localhost/BudgetBuddy/frontend/menu
 ```
 
 ---
@@ -84,7 +84,7 @@ http://localhost/BudgetBuddy/
 
 Access at:
 ```
-http://localhost/BudgetBuddy/admin/
+http://localhost/BudgetBuddy/admin/login
 ```
 
 Login as **admin** to:
