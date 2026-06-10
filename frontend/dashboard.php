@@ -73,7 +73,7 @@
       <header class="header">
           <div class="header-left">
               <div class="logo-container">
-                  <img id="logoImg" src="logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                  <img id="logoImg" src="img/logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
                   <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
               </div>
               <div class="header-content">

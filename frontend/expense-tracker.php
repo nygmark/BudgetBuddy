@@ -121,9 +121,20 @@
       <header class="header">
           <div class="header-left">
               <div class="logo-container">
+<<<<<<< Updated upstream
                   <img id="logoImg" src="logo.png" alt="Logo"
                        onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
                   <div class="logo-placeholder" id="logoPlaceholder" style="display:none;">BB</div>
+=======
+<<<<<<< HEAD
+                  <img id="logoImg" src="img/logo.png" alt="Logo" onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                  <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
+=======
+                  <img id="logoImg" src="logo.png" alt="Logo"
+                       onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='flex';">
+                  <div class="logo-placeholder" id="logoPlaceholder" style="display:none;">BB</div>
+>>>>>>> 394cf09f2dec8651a6c3634d4a5f9eb774283659
+>>>>>>> Stashed changes
               </div>
               <div class="header-content">
                   <h1><a href="menu.php" style="color:inherit;text-decoration:none;">BudgetBuddy</a></h1>

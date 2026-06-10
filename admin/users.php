@@ -128,7 +128,7 @@
   <header class="header">
       <div class="header-left">
           <div class="logo-container">
-              <img src="../frontend/logo.png" alt="Logo"
+              <img src="img/logo.png" alt="Logo"
                    onerror="this.style.display='none';document.querySelector('.logo-placeholder').style.display='flex';">
               <div class="logo-placeholder" style="display:none;">BB</div>
           </div>
