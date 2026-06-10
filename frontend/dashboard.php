@@ -92,7 +92,8 @@
               <a href="expense-tracker.php">Expenses</a>
               <a href="budget-limits.php">Budget</a>
               <a href="saving-goal.php">Goals</a>
-              <a href="logout.php" class="nav-logout">Logout</a>
+              <a href="profile.php">Profile</a>
+            <a href="logout.php" class="nav-logout">Logout</a>
           </nav>
       </div>
 
@@ -109,11 +110,12 @@
           $monthTotal = get_monthly_spent($conn, $userId);
 
           $totalSavings = get_total_savings($conn, $userId);
-          $goalTarget   = (float)($currentUser['goal_target'] ?? 10000);
-          $goalName     = $currentUser['goal_name'] ?? 'My Savings Goal';
+          $goalTarget   = (float)($currentUser['goal_target'] ?? 0);
+          $goalName     = $currentUser['goal_name'] ?? '';
           $goalDeadline = $currentUser['goal_deadline'] ?? null;
-          $progress     = ($goalTarget > 0) ? min(100, round($totalSavings / $goalTarget * 100)) : 0;
-          $remainingGoal = max(0, $goalTarget - $totalSavings);
+          $hasGoal      = ($goalName !== '' && $goalName !== null && $goalTarget > 0);
+          $progress     = ($hasGoal && $goalTarget > 0) ? min(100, round($totalSavings / $goalTarget * 100)) : 0;
+          $remainingGoal = $hasGoal ? max(0, $goalTarget - $totalSavings) : 0;
 
           $foodLimit    = (float)($currentUser['food_daily_limit'] ?? 150);
           $transpoLimit = (float)($currentUser['transpo_daily_limit'] ?? 100);
@@ -123,33 +125,50 @@
           $overFood    = $foodToday > $foodLimit;
           $overTranspo = $transpoToday > $transpoLimit;
 
-          // ── Pie chart data ─────────────────────────────────────────────────
-          // Today
-          $pieFoodDay   = $foodToday;
-          $pieTransDay  = $transpoToday;
-          $savDay = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND savings_date = ?");
-          $savDay->bind_param("is", $userId, $today);
-          $savDay->execute();
-          $pieSaveDay = (float)$savDay->get_result()->fetch_assoc()['s'];
-          $savDay->close();
+          // ── Pie chart data (all categories, grouped) ──────────────────────
+          function get_pie_data($conn, $userId, $start, $end) {
+              $s = $conn->prepare("SELECT category, description, amount FROM expenses WHERE user_id = ? AND expense_date BETWEEN ? AND ?");
+              $s->bind_param("iss", $userId, $start, $end);
+              $s->execute();
+              $rows = $s->get_result()->fetch_all(MYSQLI_ASSOC);
+              $s->close();
+              $out = [];
+              foreach ($rows as $r) {
+                  // Decode category encoded in description (e.g. [shopping] notes)
+                  if (preg_match('/^\[([^\]]+)\]/', $r['description'] ?? '', $m)) {
+                      $cat = strtolower(trim($m[1]));
+                  } else {
+                      $cat = $r['category'];
+                  }
+                  $out[$cat] = ($out[$cat] ?? 0) + (float)$r['amount'];
+              }
+              return $out;
+          }
+          function get_savings_sum($conn, $userId, $start, $end) {
+              $s = $conn->prepare("SELECT COALESCE(SUM(amount),0) as t FROM savings WHERE user_id = ? AND savings_date BETWEEN ? AND ?");
+              $s->bind_param("iss", $userId, $start, $end);
+              $s->execute();
+              $r = (float)$s->get_result()->fetch_assoc()['t'];
+              $s->close();
+              return $r;
+          }
 
-          // This week
-          $pieFoodWeek  = get_category_spent_for_period($conn, $userId, $weekStart, $today, 'food');
-          $pieTransWeek = get_category_spent_for_period($conn, $userId, $weekStart, $today, 'transpo');
-          $savWeek = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND savings_date BETWEEN ? AND ?");
-          $savWeek->bind_param("iss", $userId, $weekStart, $today);
-          $savWeek->execute();
-          $pieSaveWeek = (float)$savWeek->get_result()->fetch_assoc()['s'];
-          $savWeek->close();
+          $piePeriods = [
+              'day'   => ['exp' => get_pie_data($conn, $userId, $today,      $today),      'sav' => get_savings_sum($conn, $userId, $today,      $today)],
+              'week'  => ['exp' => get_pie_data($conn, $userId, $weekStart,  $today),      'sav' => get_savings_sum($conn, $userId, $weekStart,  $today)],
+              'month' => ['exp' => get_pie_data($conn, $userId, $monthStart, $monthEnd),   'sav' => get_savings_sum($conn, $userId, $monthStart, $monthEnd)],
+          ];
 
-          // This month
-          $pieFoodMonth  = get_category_spent_for_period($conn, $userId, $monthStart, $monthEnd, 'food');
-          $pieTransMonth = get_category_spent_for_period($conn, $userId, $monthStart, $monthEnd, 'transpo');
-          $savMonth = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND DATE_FORMAT(savings_date,'%Y-%m') = ?");
-          $savMonth->bind_param("is", $userId, $thisMonth);
-          $savMonth->execute();
-          $pieSaveMonth = (float)$savMonth->get_result()->fetch_assoc()['s'];
-          $savMonth->close();
+          $allCatMeta = [
+              'food'          => ['label' => 'Food',           'color' => '#50C878'],
+              'transpo'       => ['label' => 'Transport',      'color' => '#4FACFE'],
+              'shopping'      => ['label' => 'Shopping',       'color' => '#9B59B6'],
+              'health'        => ['label' => 'Health',         'color' => '#E74C3C'],
+              'entertainment' => ['label' => 'Entertainment',  'color' => '#E67E22'],
+              'utilities'     => ['label' => 'Utilities',      'color' => '#2980B9'],
+              'education'     => ['label' => 'Education',      'color' => '#16A085'],
+              'others'        => ['label' => 'Others',         'color' => '#95A5A6'],
+          ];
           ?>
 
           <div class="stats-grid">
@@ -181,134 +200,79 @@
                   <button class="pie-tab"        onclick="switchPie('month', this)">This Month</button>
               </div>
 
-              <?php
-              $piePeriods = [
-                  'day'   => ['food' => $pieFoodDay,   'transpo' => $pieTransDay,  'savings' => $pieSaveDay],
-                  'week'  => ['food' => $pieFoodWeek,  'transpo' => $pieTransWeek, 'savings' => $pieSaveWeek],
-                  'month' => ['food' => $pieFoodMonth, 'transpo' => $pieTransMonth,'savings' => $pieSaveMonth],
-              ];
-              foreach ($piePeriods as $period => $vals):
-                  $pFood = $vals['food'];
-                  $pTrans= $vals['transpo'];
-                  $pSave = $vals['savings'];
-                  $pTotal = $pFood + $pTrans + $pSave;
-                  if ($pTotal <= 0) $pTotal = 1;
-                  $hasData = ($pFood + $pTrans + $pSave) > 0;
-              ?>
-              <div class="pie-view <?= $period === 'day' ? 'active' : '' ?>" id="pie-<?= $period ?>">
-                  <?php if (!$hasData): ?>
-                      <p style="text-align:center;color:var(--text-secondary);padding:2rem 0;">
-                          No transactions recorded for this period yet.
-                      </p>
-                  <?php else: ?>
-                  <div class="pie-wrap">
-                      <div class="pie-svg-container">
-                          <svg width="200" height="200" viewBox="0 0 200 200" id="svg-<?= $period ?>">
-                              <g id="slices-<?= $period ?>"></g>
-                              <circle cx="100" cy="100" r="55" fill="var(--bg-white)"/>
-                          </svg>
-                          <div class="pie-center-label">
-                              <span class="pie-center-amount">₱<?= number_format($pFood + $pTrans, 0) ?></span>
-                              <span class="pie-center-sub">spent</span>
-                          </div>
-                      </div>
-                      <div class="pie-legend">
-                          <?php
-                          $segments = [
-                              ['label' => 'Food',         'value' => $pFood,  'color' => '#50C878'],
-                              ['label' => 'Transport',    'value' => $pTrans, 'color' => '#4FACFE'],
-                              ['label' => 'Savings',      'value' => $pSave,  'color' => '#FFA94D'],
-                          ];
-                          foreach ($segments as $seg):
-                              if ($seg['value'] <= 0) continue;
-                              $pct = round($seg['value'] / $pTotal * 100);
-                          ?>
-                          <div class="legend-row">
-                              <span class="legend-dot" style="background:<?= $seg['color'] ?>;"></span>
-                              <span class="legend-label"><?= $seg['label'] ?></span>
-                              <span class="legend-value">₱<?= number_format($seg['value'], 2) ?></span>
-                              <span class="legend-pct"><?= $pct ?>%</span>
-                          </div>
-                          <?php endforeach; ?>
-                      </div>
-                  </div>
-                  <script>
-                  (function() {
-                      var segs = [
-                          { value: <?= $pFood ?>,  color: '#50C878' },
-                          { value: <?= $pTrans ?>, color: '#4FACFE' },
-                          { value: <?= $pSave ?>,  color: '#FFA94D' },
-                      ];
-                      var total = <?= $pTotal ?>;
-                      var cx = 100, cy = 100, r = 90;
-                      var start = -Math.PI / 2;
-                      var g = document.getElementById('slices-<?= $period ?>');
-                      segs.forEach(function(s) {
-                          if (s.value <= 0) return;
-                          var slice = s.value / total;
-                          var end = start + slice * 2 * Math.PI;
-                          var x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
-                          var x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end);
-                          var large = slice > 0.5 ? 1 : 0;
-                          var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                          path.setAttribute('d',
-                              'M ' + cx + ' ' + cy +
-                              ' L ' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
-                              ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' +
-                              x2.toFixed(2) + ' ' + y2.toFixed(2) + ' Z');
-                          path.setAttribute('fill', s.color);
-                          path.setAttribute('stroke', 'var(--bg-white)');
-                          path.setAttribute('stroke-width', '2');
-                          g.appendChild(path);
-                          start = end;
-                      });
-                  })();
-                  </script>
-                  <?php endif; ?>
-              </div>
-              <?php endforeach; ?>
+              <?php foreach ($piePeriods as $period => $pData):
+                    $expMap      = $pData['exp'];
+                    $pSave       = $pData['sav'];
+                    $pSpent      = array_sum($expMap);
+                    $pTotal      = $pSpent + $pSave;
+                    $hasData     = $pTotal > 0;
+                    $renderTotal = $pTotal > 0 ? $pTotal : 1;
+                    $segments    = [];
+                    foreach ($allCatMeta as $catKey => $catInfo) {
+                        $val = $expMap[$catKey] ?? 0;
+                        if ($val > 0) $segments[] = ['label' => $catInfo['label'], 'value' => $val, 'color' => $catInfo['color']];
+                    }
+                    if ($pSave > 0) $segments[] = ['label' => 'Savings', 'value' => $pSave, 'color' => '#FFA94D'];
+                ?>
+                <div class="pie-view <?= $period === 'day' ? 'active' : '' ?>" id="pie-<?= $period ?>">
+                    <?php if (!$hasData): ?>
+                        <p style="text-align:center;color:var(--text-secondary);padding:2rem 0;">
+                            No transactions recorded for this period yet.
+                        </p>
+                    <?php else: ?>
+                    <div class="pie-wrap">
+                        <div class="pie-svg-container">
+                            <svg width="200" height="200" viewBox="0 0 200 200" id="svg-<?= $period ?>">
+                                <g id="slices-<?= $period ?>"></g>
+                                <circle cx="100" cy="100" r="55" fill="var(--bg-white)"/>
+                            </svg>
+                            <div class="pie-center-label">
+                                <span class="pie-center-amount">&#8369;<?= number_format($pSpent, 0) ?></span>
+                                <span class="pie-center-sub">spent</span>
+                            </div>
+                        </div>
+                        <div class="pie-legend">
+                            <?php foreach ($segments as $seg):
+                                $pct = round($seg['value'] / $renderTotal * 100); ?>
+                            <div class="legend-row">
+                                <span class="legend-dot" style="background:<?= $seg['color'] ?>;"></span>
+                                <span class="legend-label"><?= $seg['label'] ?></span>
+                                <span class="legend-value">&#8369;<?= number_format($seg['value'], 2) ?></span>
+                                <span class="legend-pct"><?= $pct ?>%</span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <script>
+                    (function() {
+                        var segs = <?= json_encode(array_map(function($s){ return ['value'=>(float)$s['value'],'color'=>$s['color']]; }, $segments)) ?>;
+                        var total = <?= (float)$renderTotal ?>;
+                        var cx = 100, cy = 100, r = 90;
+                        var angle = -Math.PI / 2;
+                        var g = document.getElementById('slices-<?= $period ?>');
+                        segs.forEach(function(s) {
+                            if (s.value <= 0) return;
+                            var slice = s.value / total;
+                            var end   = angle + slice * 2 * Math.PI;
+                            var x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+                            var x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end);
+                            var large = slice > 0.5 ? 1 : 0;
+                            var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            path.setAttribute('d','M '+cx+' '+cy+' L '+x1.toFixed(2)+' '+y1.toFixed(2)+' A '+r+' '+r+' 0 '+large+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)+' Z');
+                            path.setAttribute('fill', s.color);
+                            path.setAttribute('stroke', 'var(--bg-white)');
+                            path.setAttribute('stroke-width', '2');
+                            g.appendChild(path);
+                            angle = end;
+                        });
+                    })();
+                    </script>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
           </div>
 
-          <div class="card">
-              <h2>Today's Budget Status</h2>
-              <div class="table-wrapper">
-                  <table class="table">
-                      <thead>
-                          <tr>
-                              <th>Category</th>
-                              <th>Spent Today</th>
-                              <th>Daily Limit</th>
-                              <th>Remaining</th>
-                              <th>Status</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <tr>
-                              <td class="category-food">Food</td>
-                              <td>₱<?= number_format($foodToday, 2) ?></td>
-                              <td>₱<?= number_format($foodLimit, 2) ?></td>
-                              <td>₱<?= number_format(max(0, $foodLimit - $foodToday), 2) ?></td>
-                              <td>
-                                  <span class="status <?= $overFood ? 'status-exceeded' : 'status-ok' ?>">
-                                      <?= $overFood ? 'Exceeded' : 'OK' ?>
-                                  </span>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td class="category-transpo">Transportation</td>
-                              <td>₱<?= number_format($transpoToday, 2) ?></td>
-                              <td>₱<?= number_format($transpoLimit, 2) ?></td>
-                              <td>₱<?= number_format(max(0, $transpoLimit - $transpoToday), 2) ?></td>
-                              <td>
-                                  <span class="status <?= $overTranspo ? 'status-exceeded' : 'status-ok' ?>">
-                                      <?= $overTranspo ? 'Exceeded' : 'OK' ?>
-                                  </span>
-                              </td>
-                          </tr>
-                      </tbody>
-                  </table>
-              </div>
-          </div>
+          
 
           <div class="card">
               <h2>Savings Goal: <?= htmlspecialchars($goalName) ?></h2>
@@ -339,40 +303,26 @@
               </div>
           </div>
 
+
           <div class="card">
               <h2>Alerts &amp; Notifications</h2>
               <div class="alerts">
-                  <?php if ($overFood): ?>
-                      <div class="alert alert-warning">
-                          <strong>Warning:</strong> You exceeded your food limit today (₱<?= number_format($foodToday, 2) ?> / ₱<?= number_format($foodLimit, 2) ?>)
-                      </div>
-                  <?php endif; ?>
-                  <?php if ($overTranspo): ?>
-                      <div class="alert alert-warning">
-                          <strong>Warning:</strong> You exceeded your transportation limit today (₱<?= number_format($transpoToday, 2) ?> / ₱<?= number_format($transpoLimit, 2) ?>)
-                      </div>
-                  <?php endif; ?>
-                  <?php if (!$overFood && !$overTranspo && $totalSavings < $goalTarget): ?>
-                      <div class="alert alert-info">
-                          <strong>Info:</strong> Keep saving towards your goal "<?= htmlspecialchars($goalName) ?>"
-                      </div>
-                  <?php endif; ?>
-                  <?php if (!$overFood && !$overTranspo && $totalSavings >= $goalTarget): ?>
+                  <?php if ($hasGoal && $totalSavings >= $goalTarget): ?>
                       <div class="alert alert-success">
-                          <strong>Success:</strong> You've reached your savings goal!
+                          <strong>Congratulations!</strong> You have reached your savings goal "<?= htmlspecialchars($goalName) ?>"!
+                      </div>
+                  <?php elseif ($hasGoal): ?>
+                      <div class="alert alert-info">
+                          <strong>Info:</strong> Keep saving towards your goal "<?= htmlspecialchars($goalName) ?>". You are <?= $progress ?>% there!
+                      </div>
+                  <?php else: ?>
+                      <div class="alert alert-info">
+                          <strong>Tip:</strong> Head to the Goals page to set up a savings goal and track your progress.
                       </div>
                   <?php endif; ?>
               </div>
           </div>
 
-          <div class="card">
-              <h2>Quick Actions</h2>
-              <div class="action-grid">
-                  <a href="expense-tracker.php" class="btn btn-primary">Add Expense</a>
-                  <a href="saving-goal.php" class="btn btn-secondary">Add Savings</a>
-                  <a href="budget-limits.php" class="btn btn-secondary">Manage Budget</a>
-              </div>
-          </div>
       </div>
 
       <script>
@@ -394,8 +344,50 @@
       window.addEventListener('load', function() {
           var theme = document.documentElement.getAttribute('data-theme') || 'light';
           document.querySelector('.theme-toggle').textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+          <?php
+          $dashMonthlyBudget = (float)($currentUser['monthly_budget'] ?? 0);
+          $dashOverBudget    = $dashMonthlyBudget > 0 && $monthTotal > $dashMonthlyBudget;
+          $dashGoalReached   = $hasGoal && $totalSavings >= $goalTarget;
+          if ($dashOverBudget): ?>
+          showNotif('warning',
+              '⚠️ Monthly Budget Exceeded!',
+              'You have spent ₱<?= number_format($monthTotal,2) ?> this month, which is over your ₱<?= number_format($dashMonthlyBudget,2) ?> budget.'
+          );
+          <?php elseif ($dashGoalReached): ?>
+          showNotif('success',
+              '🎉 Savings Goal Reached!',
+              'Congratulations! You have reached your savings goal "<?= htmlspecialchars(addslashes($goalName)) ?>"!'
+          );
+          <?php endif; ?>
       });
+
+      /* ── Popup notification ─────────────────────────────── */
+      function showNotif(type, title, message) {
+          var colors = { warning: '#E67E22', success: '#27AE60', info: '#2980B9' };
+          document.getElementById('notif-bar').style.background = colors[type] || colors.info;
+          document.getElementById('notif-title').textContent    = title;
+          document.getElementById('notif-message').textContent  = message;
+          document.getElementById('notif-overlay').style.display = 'flex';
+          document.getElementById('notif-popup').style.display   = 'block';
+      }
+      function closeNotif() {
+          document.getElementById('notif-overlay').style.display = 'none';
+          document.getElementById('notif-popup').style.display   = 'none';
+      }
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeNotif(); });
       </script>
+
+  <!-- Popup notification modal -->
+  <div id="notif-overlay" onclick="closeNotif()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;align-items:center;justify-content:center;"></div>
+  <div id="notif-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:var(--card-bg,#1a2332);border:1px solid rgba(255,255,255,0.12);border-radius:1.25rem;width:min(420px,92vw);overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+      <div id="notif-bar" style="height:5px;width:100%;"></div>
+      <div style="padding:2rem 2rem 1.75rem;text-align:center;">
+          <h3 id="notif-title"   style="margin:0 0 0.75rem;font-size:1.15rem;color:var(--text-dark,#fff);"></h3>
+          <p  id="notif-message" style="margin:0 0 1.5rem;color:var(--text-secondary,#aaa);font-size:0.95rem;line-height:1.5;"></p>
+          <button onclick="closeNotif()" class="btn btn-primary" style="min-width:120px;">OK, Got it!</button>
+      </div>
+  </div>
+
   </body>
   </html>
   

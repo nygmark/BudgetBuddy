@@ -179,7 +179,8 @@
               <a href="expense-tracker.php">Expenses</a>
               <a href="budget-limits.php" class="active">Budget</a>
               <a href="saving-goal.php">Goals</a>
-              <a href="logout.php" class="nav-logout">Logout</a>
+              <a href="profile.php">Profile</a>
+            <a href="logout.php" class="nav-logout">Logout</a>
           </nav>
       </div>
 
