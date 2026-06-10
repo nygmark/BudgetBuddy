@@ -5,8 +5,9 @@ include("../config/db.php");
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
 setcookie('theme', $theme, time() + (86400 * 365), '/');
 
-$errors = [];
+$errors  = [];
 $success = false;
+$msg     = isset($_GET['msg']) ? $_GET['msg'] : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
@@ -63,7 +64,12 @@ if (isset($_SESSION['user_id'])) {
             <h1>BudgetBuddy</h1>
             <p class="subtitle">Smart Money Management</p>
 
-            <?php if (!empty($errors)): ?>
+            <?php if ($msg): ?>
+                  <div class="alert alert-success">
+                      <strong>Success:</strong> <?= htmlspecialchars($msg) ?>
+                  </div>
+              <?php endif; ?>
+              <?php if (!empty($errors)): ?>
                 <?php foreach ($errors as $e): ?>
                     <div class="alert alert-error">
                         <strong>Error:</strong> <?= htmlspecialchars($e) ?>
