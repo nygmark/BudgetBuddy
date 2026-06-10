@@ -1,5 +1,5 @@
 <?php
-// Simple entry point inside the frontend folder
-header("Location: login.php");
-exit;
-?>
+  // Entry point — show the landing page
+  header("Location: menu.php");
+  exit;
+  ?>

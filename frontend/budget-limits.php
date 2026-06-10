@@ -67,7 +67,10 @@
   $savedAmount = (float)$savStmt->get_result()->fetch_assoc()['s'];
   $savStmt->close();
 
-  $totalSpent   = $foodSpent + $transSpent;
+  $totalSpent   = get_weekly_spent($conn, $userId); // sums ALL categories
+  // override per period:
+  if ($budgetPeriod === 'daily') $totalSpent = get_daily_spent($conn, $userId, $today);
+  elseif ($budgetPeriod === 'monthly') $totalSpent = get_monthly_spent($conn, $userId);
   $remaining    = max(0, $budgetAmount - $totalSpent);
   $isOver       = $totalSpent > $budgetAmount;
   $spentPct     = $budgetAmount > 0 ? min(100, round($totalSpent / $budgetAmount * 100)) : 0;
@@ -75,9 +78,10 @@
   // Pie chart values (food, transpo, savings, remaining budget)
   $pieFood   = $foodSpent;
   $pieTransp = $transSpent;
+  $pieOthers = max(0, $totalSpent - $foodSpent - $transSpent);
   $pieSave   = $savedAmount;
   $pieRem    = max(0, $budgetAmount - $totalSpent);
-  $pieTotal  = $pieFood + $pieTransp + $pieSave + $pieRem;
+  $pieTotal  = $pieFood + $pieTransp + $pieOthers + $pieSave + $pieRem;
   if ($pieTotal <= 0) $pieTotal = 1; // avoid division by zero
   ?>
   <!DOCTYPE html>
@@ -164,7 +168,7 @@
                   <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
               </div>
               <div class="header-content">
-                  <h1>BudgetBuddy</h1>
+                  <h1><a href="menu.php" style="color:inherit;text-decoration:none;">BudgetBuddy</a></h1>
                   <p>Manage Your Budget</p>
               </div>
           </div>
@@ -315,7 +319,8 @@
                       $segments = [
                           ['label' => 'Food',         'value' => $pieFood,   'color' => '#50C878'],
                           ['label' => 'Transport',     'value' => $pieTransp, 'color' => '#4FACFE'],
-                          ['label' => 'Savings',       'value' => $pieSave,   'color' => '#FFA94D'],
+                          ['label' => ['label' => 'Others',           'value' => $pieOthers,  'color' => '#9B59B6'],
+                          'Savings',       'value' => $pieSave,   'color' => '#FFA94D'],
                           ['label' => 'Remaining Budget','value' => $pieRem,  'color' => '#E8EDF2'],
                       ];
                       foreach ($segments as $seg):

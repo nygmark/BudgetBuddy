@@ -77,7 +77,7 @@
                   <div class="logo-placeholder" id="logoPlaceholder" style="display: none;">BB</div>
               </div>
               <div class="header-content">
-                  <h1>BudgetBuddy</h1>
+                  <h1><a href="menu.php" style="color:inherit;text-decoration:none;">BudgetBuddy</a></h1>
                   <p>Welcome back, <?= htmlspecialchars($userName) ?></p>
               </div>
           </div>

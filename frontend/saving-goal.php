@@ -110,7 +110,7 @@
                   <div class="logo-placeholder" id="logoPlaceholder" style="display:none;">BB</div>
               </div>
               <div class="header-content">
-                  <h1>BudgetBuddy</h1>
+                  <h1><a href="menu.php" style="color:inherit;text-decoration:none;">BudgetBuddy</a></h1>
                   <p>Achieve Your Goals</p>
               </div>
           </div>
@@ -254,7 +254,10 @@
           </div>
 
           <div class="card">
-              <h2>Recent Contributions</h2>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+                    <h2 style="margin:0;">Recent Contributions</h2>
+                    <a href="../api/export.php?type=savings" class="btn btn-primary" style="font-size:0.85rem;padding:0.45rem 1rem;text-decoration:none;">&#8595; Export Savings (CSV)</a>
+                </div>
               <?php if (!count($recentSavings)): ?>
                   <p style="text-align:center;padding:2rem;color:var(--text-secondary);">No savings recorded yet.</p>
               <?php else: ?>

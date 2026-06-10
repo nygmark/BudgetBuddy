@@ -1,6 +1,6 @@
 <?php
-session_start();
-session_destroy();
-header("Location: auth/login.php");
-exit;
-?>
+  session_start();
+  session_destroy();
+  header("Location: frontend/menu.php");
+  exit;
+  ?>

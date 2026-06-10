@@ -22,13 +22,14 @@
   // All other categories are encoded as "[category] notes" inside description
   // so the ENUM column stays valid without any schema migration.
   function encode_expense($category, $customCat, $notes) {
-      if ($category === 'food' || $category === 'transpo') {
-          return ['dbCat' => $category, 'dbDesc' => $notes];
-      }
-      $label  = ($category === 'others') ? $customCat : $category;
-      $dbDesc = '[' . $label . ']' . ($notes !== '' ? ' ' . $notes : '');
-      return ['dbCat' => 'food', 'dbDesc' => $dbDesc]; // 'food' is a valid ENUM placeholder
-  }
+        // Store the real category in the category column.
+        // For 'others', prepend the custom label to the description for display.
+        $dbCat  = $category;
+        $dbDesc = ($category === 'others' && $customCat !== '')
+                  ? '[' . $customCat . ']' . ($notes !== '' ? ' ' . $notes : '')
+                  : $notes;
+        return ['dbCat' => $dbCat, 'dbDesc' => $dbDesc];
+    }
 
   // ── Helper: decode a DB row back into display values ─────────────────────────
   function decode_expense(&$row) {
@@ -125,7 +126,7 @@
                   <div class="logo-placeholder" id="logoPlaceholder" style="display:none;">BB</div>
               </div>
               <div class="header-content">
-                  <h1>BudgetBuddy</h1>
+                  <h1><a href="menu.php" style="color:inherit;text-decoration:none;">BudgetBuddy</a></h1>
                   <p>Track Your Expenses</p>
               </div>
           </div>
@@ -215,7 +216,15 @@
           </div>
 
           <div class="card">
-              <h2>Expense History</h2>
+              
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+                    <h2 style="margin:0;">Expense History</h2>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <a href="../api/export.php?type=expenses" class="btn btn-primary" style="font-size:0.85rem;padding:0.45rem 1rem;text-decoration:none;">&#8595; Export Expenses (CSV)</a>
+                        <a href="../api/export.php?type=summary" class="btn btn-primary" style="font-size:0.85rem;padding:0.45rem 1rem;text-decoration:none;">&#8595; Monthly Summary (CSV)</a>
+                    </div>
+                </div>
+              <h2 style="display:none;">Expense History</h2>
               <div class="filter-bar">
                   <select id="periodFilter">
                       <option value="all">All Time</option>
