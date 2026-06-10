@@ -40,25 +40,22 @@
   switch ($budgetPeriod) {
       case 'daily':
           $periodLabel = 'Today';
-          $foodSpent   = get_daily_spent($conn, $userId, $today, 'food');
-          $transSpent  = get_daily_spent($conn, $userId, $today, 'transpo');
-          // Savings for today
+          $periodStart = $today;
+          $periodEnd   = $today;
           $savStmt = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND savings_date = ?");
           $savStmt->bind_param("is", $userId, $today);
           break;
       case 'weekly':
           $periodLabel = 'This Week (last 7 days)';
-          $foodSpent   = get_category_spent_for_period($conn, $userId, $weekStart, $today, 'food');
-          $transSpent  = get_category_spent_for_period($conn, $userId, $weekStart, $today, 'transpo');
+          $periodStart = $weekStart;
+          $periodEnd   = $today;
           $savStmt = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND savings_date BETWEEN ? AND ?");
           $savStmt->bind_param("iss", $userId, $weekStart, $today);
           break;
       default: // monthly
-          $periodLabel  = 'This Month (' . date('F Y') . ')';
-          $foodSpent    = get_monthly_spent($conn, $userId) - get_category_spent_for_period($conn, $userId, date('Y-m-01'), $today, 'transpo');
-          // Actually compute each separately for accuracy
-          $foodSpent    = get_category_spent_for_period($conn, $userId, date('Y-m-01'), date('Y-m-t'), 'food');
-          $transSpent   = get_category_spent_for_period($conn, $userId, date('Y-m-01'), date('Y-m-t'), 'transpo');
+          $periodLabel = 'This Month (' . date('F Y') . ')';
+          $periodStart = date('Y-m-01');
+          $periodEnd   = date('Y-m-t');
           $savStmt = $conn->prepare("SELECT COALESCE(SUM(amount),0) as s FROM savings WHERE user_id = ? AND DATE_FORMAT(savings_date,'%Y-%m') = ?");
           $savStmt->bind_param("is", $userId, $thisMonth);
           break;
@@ -67,21 +64,26 @@
   $savedAmount = (float)$savStmt->get_result()->fetch_assoc()['s'];
   $savStmt->close();
 
+  $allCats = ['food','transpo','shopping','health','entertainment','utilities','education','others'];
+  $catSpent = [];
+  foreach ($allCats as $_cat) {
+      $catSpent[$_cat] = get_category_spent_for_period($conn, $userId, $periodStart, $periodEnd, $_cat);
+  }
+  $foodSpent  = $catSpent['food'];
+  $transSpent = $catSpent['transpo'];
+
   $totalSpent   = get_weekly_spent($conn, $userId); // sums ALL categories
   // override per period:
   if ($budgetPeriod === 'daily') $totalSpent = get_daily_spent($conn, $userId, $today);
   elseif ($budgetPeriod === 'monthly') $totalSpent = get_monthly_spent($conn, $userId);
-  $remaining    = max(0, $budgetAmount - $totalSpent);
-  $isOver       = $totalSpent > $budgetAmount;
+  $remaining    = max(0, $budgetAmount - $totalSpent - $savedAmount);
+  $isOver       = ($totalSpent + $savedAmount) > $budgetAmount;
   $spentPct     = $budgetAmount > 0 ? min(100, round($totalSpent / $budgetAmount * 100)) : 0;
 
-  // Pie chart values (food, transpo, savings, remaining budget)
-  $pieFood   = $foodSpent;
-  $pieTransp = $transSpent;
-  $pieOthers = max(0, $totalSpent - $foodSpent - $transSpent);
+  // Pie chart values (all categories, savings, remaining budget)
   $pieSave   = $savedAmount;
-  $pieRem    = max(0, $budgetAmount - $totalSpent);
-  $pieTotal  = $pieFood + $pieTransp + $pieOthers + $pieSave + $pieRem;
+  $pieRem    = max(0, $budgetAmount - $totalSpent - $savedAmount);
+  $pieTotal  = $totalSpent + $pieSave + $pieRem;
   if ($pieTotal <= 0) $pieTotal = 1; // avoid division by zero
   ?>
   <!DOCTYPE html>
@@ -256,12 +258,48 @@
                   </div>
                   <div class="goal-item">
                       <span class="goal-label">Food</span>
-                      <span class="goal-value">₱<?= number_format($foodSpent, 2) ?></span>
+                      <span class="goal-value">₱<?= number_format($catSpent['food'], 2) ?></span>
                   </div>
                   <div class="goal-item">
                       <span class="goal-label">Transport</span>
-                      <span class="goal-value">₱<?= number_format($transSpent, 2) ?></span>
+                      <span class="goal-value">₱<?= number_format($catSpent['transpo'], 2) ?></span>
                   </div>
+                  <?php if ($catSpent['shopping'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Shopping</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['shopping'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($catSpent['health'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Health &amp; Medical</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['health'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($catSpent['entertainment'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Entertainment</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['entertainment'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($catSpent['utilities'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Utilities &amp; Bills</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['utilities'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($catSpent['education'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Education</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['education'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
+                  <?php if ($catSpent['others'] > 0): ?>
+                  <div class="goal-item">
+                      <span class="goal-label">Others</span>
+                      <span class="goal-value">₱<?= number_format($catSpent['others'], 2) ?></span>
+                  </div>
+                  <?php endif; ?>
                   <div class="goal-item">
                       <span class="goal-label">Remaining</span>
                       <span class="goal-value" style="color:<?= $isOver ? 'var(--danger-red)' : 'var(--success-green)' ?>;">
@@ -295,7 +333,7 @@
           <div class="card">
               <h2>Spending Breakdown — <?= htmlspecialchars($periodLabel) ?></h2>
               <?php
-              $hasData = ($pieFood + $pieTransp + $pieSave + $pieRem) > 0;
+              $hasData = ($totalSpent + $pieSave + $pieRem) > 0;
               ?>
               <?php if (!$hasData): ?>
                   <p class="empty-pie-msg">No transactions yet for this period. Add some expenses or savings to see the chart.</p>
@@ -317,11 +355,16 @@
                   <div class="pie-legend">
                       <?php
                       $segments = [
-                          ['label' => 'Food',         'value' => $pieFood,   'color' => '#50C878'],
-                          ['label' => 'Transport',     'value' => $pieTransp, 'color' => '#4FACFE'],
-                          ['label' => ['label' => 'Others',           'value' => $pieOthers,  'color' => '#9B59B6'],
-                          'Savings',       'value' => $pieSave,   'color' => '#FFA94D'],
-                          ['label' => 'Remaining Budget','value' => $pieRem,  'color' => '#E8EDF2'],
+                          ['label' => 'Food',             'value' => $catSpent['food'],          'color' => '#50C878'],
+                          ['label' => 'Transport',        'value' => $catSpent['transpo'],        'color' => '#4FACFE'],
+                          ['label' => 'Shopping',         'value' => $catSpent['shopping'],       'color' => '#9B59B6'],
+                          ['label' => 'Health & Medical', 'value' => $catSpent['health'],         'color' => '#FF6B6B'],
+                          ['label' => 'Entertainment',    'value' => $catSpent['entertainment'],  'color' => '#F39C12'],
+                          ['label' => 'Utilities & Bills','value' => $catSpent['utilities'],      'color' => '#1ABC9C'],
+                          ['label' => 'Education',        'value' => $catSpent['education'],      'color' => '#3498DB'],
+                          ['label' => 'Others',           'value' => $catSpent['others'],         'color' => '#95A5A6'],
+                          ['label' => 'Savings',          'value' => $pieSave,                   'color' => '#FFA94D'],
+                          ['label' => 'Remaining Budget', 'value' => $pieRem,                    'color' => '#E8EDF2'],
                       ];
                       foreach ($segments as $seg):
                           if ($seg['value'] <= 0) continue;
@@ -340,10 +383,16 @@
               <script>
               (function() {
                   const segments = [
-                      { value: <?= $pieFood ?>,   color: '#50C878' },
-                      { value: <?= $pieTransp ?>, color: '#4FACFE' },
-                      { value: <?= $pieSave ?>,   color: '#FFA94D' },
-                      { value: <?= $pieRem ?>,    color: '#E8EDF2' },
+                      { value: <?= $catSpent['food'] ?>,          color: '#50C878' },
+                      { value: <?= $catSpent['transpo'] ?>,       color: '#4FACFE' },
+                      { value: <?= $catSpent['shopping'] ?>,      color: '#9B59B6' },
+                      { value: <?= $catSpent['health'] ?>,        color: '#FF6B6B' },
+                      { value: <?= $catSpent['entertainment'] ?>, color: '#F39C12' },
+                      { value: <?= $catSpent['utilities'] ?>,     color: '#1ABC9C' },
+                      { value: <?= $catSpent['education'] ?>,     color: '#3498DB' },
+                      { value: <?= $catSpent['others'] ?>,        color: '#95A5A6' },
+                      { value: <?= $pieSave ?>,                   color: '#FFA94D' },
+                      { value: <?= $pieRem ?>,                    color: '#E8EDF2' },
                   ];
                   const total = <?= $pieTotal ?>;
                   const cx = 100, cy = 100, r = 90;

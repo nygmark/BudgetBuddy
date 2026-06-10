@@ -28,10 +28,17 @@
   $r = $conn->query("SELECT category, COUNT(*) as cnt, COALESCE(SUM(amount),0) as total FROM expenses GROUP BY category");
   while ($row = $r->fetch_assoc()) $catBreakdown[$row['category']] = $row;
 
-  $foodTotal   = (float)($catBreakdown['food']['total']   ?? 0);
-  $transTotal  = (float)($catBreakdown['transpo']['total'] ?? 0);
-  $foodCount   = (int)($catBreakdown['food']['cnt']        ?? 0);
-  $transCount  = (int)($catBreakdown['transpo']['cnt']     ?? 0);
+  $allCatDefs = [
+      'food'          => ['label' => 'Food',             'bar' => 'bar-green'],
+      'transpo'       => ['label' => 'Transport',        'bar' => 'bar-blue'],
+      'shopping'      => ['label' => 'Shopping',         'bar' => 'bar-orange'],
+      'health'        => ['label' => 'Health & Medical', 'bar' => 'bar-pink'],
+      'entertainment' => ['label' => 'Entertainment',    'bar' => 'bar-yellow'],
+      'utilities'     => ['label' => 'Utilities & Bills','bar' => 'bar-teal'],
+      'education'     => ['label' => 'Education',        'bar' => 'bar-indigo'],
+      'others'        => ['label' => 'Others',           'bar' => 'bar-gray'],
+  ];
+  $grandCatTotal = array_sum(array_column($catBreakdown, 'total')) ?: 1;
 
   // ── Monthly expense trend (last 6 months) ──────────────────────────────
   $monthlyExpenses = [];
@@ -232,6 +239,10 @@
           .bar-blue   { background: linear-gradient(90deg, #4FACFE, #00F2FE); }
           .bar-orange { background: linear-gradient(90deg, #FFA94D, #FFD700); }
           .bar-pink   { background: linear-gradient(90deg, #FF6B6B, #FFAAA5); }
+          .bar-yellow { background: linear-gradient(90deg, #F39C12, #F7DC6F); }
+          .bar-teal   { background: linear-gradient(90deg, #1ABC9C, #76D7C4); }
+          .bar-indigo { background: linear-gradient(90deg, #3498DB, #85C1E9); }
+          .bar-gray   { background: linear-gradient(90deg, #95A5A6, #BDC3C7); }
           .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
           @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
           .pill-food   { background: #D4EDDA; color: #155724; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
@@ -337,30 +348,23 @@
           <!-- ── Expense Category Breakdown ─────────────────────────── -->
           <div class="card">
               <div class="section-title">Expenses by Category</div>
-              <?php
-              $grandTotal = $foodTotal + $transTotal;
-              $foodPct   = $grandTotal > 0 ? round($foodTotal  / $grandTotal * 100) : 0;
-              $transPct  = $grandTotal > 0 ? round($transTotal / $grandTotal * 100) : 0;
-              ?>
               <div class="chart-bar-wrap">
+                  <?php foreach ($allCatDefs as $catKey => $catDef):
+                      $catTotal = (float)($catBreakdown[$catKey]['total'] ?? 0);
+                      $catCount = (int)($catBreakdown[$catKey]['cnt']   ?? 0);
+                      if ($catTotal <= 0) continue;
+                      $catPct = round($catTotal / $grandCatTotal * 100);
+                  ?>
                   <div class="chart-bar-row">
-                      <div class="chart-bar-label">Food</div>
+                      <div class="chart-bar-label"><?= htmlspecialchars($catDef['label']) ?></div>
                       <div class="chart-bar-track">
-                          <div class="chart-bar-fill bar-green" style="width:<?= $foodPct ?>%">
-                              <?= $foodPct > 10 ? $foodPct.'%' : '' ?>
+                          <div class="chart-bar-fill <?= $catDef['bar'] ?>" style="width:<?= $catPct ?>%">
+                              <?= $catPct > 10 ? $catPct.'%' : '' ?>
                           </div>
                       </div>
-                      <span style="font-size:0.85rem;font-weight:600;min-width:80px;">₱<?= number_format($foodTotal,0) ?> (<?= $foodCount ?>)</span>
+                      <span style="font-size:0.85rem;font-weight:600;min-width:80px;">₱<?= number_format($catTotal,0) ?> (<?= $catCount ?>)</span>
                   </div>
-                  <div class="chart-bar-row">
-                      <div class="chart-bar-label">Transport</div>
-                      <div class="chart-bar-track">
-                          <div class="chart-bar-fill bar-blue" style="width:<?= $transPct ?>%">
-                              <?= $transPct > 10 ? $transPct.'%' : '' ?>
-                          </div>
-                      </div>
-                      <span style="font-size:0.85rem;font-weight:600;min-width:80px;">₱<?= number_format($transTotal,0) ?> (<?= $transCount ?>)</span>
-                  </div>
+                  <?php endforeach; ?>
               </div>
               <div style="margin-top:1.5rem;font-size:0.9rem;color:var(--text-secondary);">
                   Total expense records: <strong style="color:var(--text-dark);"><?= $totalExpenses ?></strong>
