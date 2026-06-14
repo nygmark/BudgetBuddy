@@ -21,7 +21,7 @@ A personal finance web application where users can track expenses, set budgets, 
 
 ### 1. Clone the repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/nygmark/BudgetBuddy.git
 ```
 
 ### 2. Move to XAMPP's htdocs
